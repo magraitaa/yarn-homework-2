@@ -1,7 +1,6 @@
 # ДЗ №2 — развёртывание YARN
 
-YARN развёрнут на существующем HDFS-кластере команды 12.
-Hadoop установлен в `/opt/hadoop`. YARN работает от `hadoop`, HDFS — от `team`.
+YARN развёрнут на существующем HDFS-кластере, Hadoop установлен в `/opt/hadoop`, YARN работает от `hadoop`, HDFS — от `team`.
 
 ## Кластер
 
@@ -32,10 +31,6 @@ results/              результаты проверок
 
 ## Подготовка
 
-Нужны установленный Hadoop, работающий HDFS и SSH-доступ от `team`
-между узлами через `~/.ssh/team_internal`. У `team` настроен sudo без пароля.
-Подготовка пользователей, SSH и `/etc/hosts` выполняется один раз вручную.
-
 ### Пользователь
 
 На каждом из четырёх узлов от `team`:
@@ -50,7 +45,7 @@ fi
 
 ### SSH
 
-На `team-12-nn` создайте ключ для `hadoop`, если его ещё нет:
+Создание ключа для `hadoop`:
 
 ```bash
 sudo -iu hadoop
@@ -62,8 +57,7 @@ fi
 cat "$HOME/.ssh/id_ed25519.pub"
 ```
 
-На каждом рабочем узле (`team-12-en`, `team-12-00`, `team-12-01`) от `team`
-добавьте полученную публичную строку, заменив значение `hw2_key`:
+На каждом рабочем узле от `team` добавляем полученную публичную строку вместо `hw2_key`:
 
 ```bash
 hw2_key='ВСТАВЬТЕ_ПОЛНУЮ_ПУБЛИЧНУЮ_СТРОКУ_ssh-ed25519'
@@ -72,7 +66,7 @@ printf '%s\n' "$hw2_key" | sudo -n -u hadoop tee -a /home/hadoop/.ssh/authorized
 sudo -n -u hadoop chmod 600 /home/hadoop/.ssh/authorized_keys
 ```
 
-На `team-12-nn` от `team` скопируйте новому пользователю уже проверенные
+На `team-12-nn` от `team` копируем новому пользователю уже проверенные
 SSH-отпечатки рабочих узлов:
 
 ```bash
@@ -96,7 +90,7 @@ sudo nano /etc/hosts
 # 127.0.1.1 team-12-nn.hse.c.mws team-12-nn
 ```
 
-После изменения адреса перезапустите уже работающий SecondaryNameNode от `team`:
+После изменения адреса перезапускаем уже работающий SecondaryNameNode от `team`:
 
 ```bash
 /opt/hadoop/bin/hdfs --daemon stop secondarynamenode &&
@@ -105,7 +99,7 @@ sudo nano /etc/hosts
 
 ## Развёртывание
 
-Разместите проект в `/home/team/yarn-homework-2` на `team-12-en`.
+Размещаем проект в `/home/team/yarn-homework-2` на `team-12-en`.
 Команды выполняются от `team`:
 
 ```bash
@@ -127,14 +121,12 @@ bash scripts/check_yarn.sh
 
 ## Веб-интерфейсы
 
-На своём компьютере из папки проекта запустите туннель, указав путь
+На своём компьютере из папки проекта запускаем туннель, указав путь
 к личному SSH-ключу доступа к edge-узлу:
 
 ```bash
 bash scripts/open_web.sh /path/to/private_key
 ```
-
-Оставьте туннель работающим. Доступ через localhost разрешён преподавателем.
 
 | Сервис | Узел | Адрес |
 | --- | --- | --- |
