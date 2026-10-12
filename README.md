@@ -57,10 +57,10 @@ fi
 cat "$HOME/.ssh/id_ed25519.pub"
 ```
 
-На каждом рабочем узле от `team` добавляем полученную публичную строку вместо `hw2_key`:
+На каждом рабочем узле от `team` добавляем публичный ключ пользователя hadoop с team-12-nn
 
 ```bash
-hw2_key='ВСТАВЬТЕ_ПОЛНУЮ_ПУБЛИЧНУЮ_СТРОКУ_ssh-ed25519'
+hw2_key='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINykv4pImXUuwnubsv36gbusZCEbZ4zkjO7GvmMBVGTA hadoop@team-12-nn'
 sudo -n install -d -m 700 -o hadoop -g hadoop /home/hadoop/.ssh
 printf '%s\n' "$hw2_key" | sudo -n -u hadoop tee -a /home/hadoop/.ssh/authorized_keys >/dev/null
 sudo -n -u hadoop chmod 600 /home/hadoop/.ssh/authorized_keys
