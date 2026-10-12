@@ -31,6 +31,15 @@ results/              результаты проверок
 
 ## Подготовка
 
+Используется подготовленный HDFS-кластер из ДЗ №1: Hadoop
+установлен в `/opt/hadoop`, Java 17 и `JAVA_HOME` настроены на всех узлах.
+
+Для выполнения инструкции должны быть выполнены следующие условия:
+- у пользователя `team` на всех узлах настроен `sudo` без пароля
+- с `team-12-en` и `team-12-nn` настроен SSH от `team` к остальным узлам
+  с ключом `~/.ssh/team_internal`
+- SSH-отпечатки узлов проверены и сохранены в `~/.ssh/known_hosts`
+
 ### Пользователь
 
 На каждом из четырёх узлов от `team`:
@@ -45,7 +54,7 @@ fi
 
 ### SSH
 
-Создание ключа для `hadoop`:
+На `team-12-nn` от пользователя `team` создаём ключ для `hadoop`:
 
 ```bash
 sudo -iu hadoop
@@ -54,25 +63,34 @@ chmod 700 "$HOME/.ssh"
 if [ ! -e "$HOME/.ssh/id_ed25519" ] && [ ! -e "$HOME/.ssh/id_ed25519.pub" ]; then
   ssh-keygen -t ed25519 -N "" -f "$HOME/.ssh/id_ed25519"
 fi
-cat "$HOME/.ssh/id_ed25519.pub"
+exit
 ```
 
-На каждом рабочем узле от `team` добавляем публичный ключ пользователя hadoop с team-12-nn
+После `exit` мы снова работаем от `team` на `team-12-nn`.
+Передаём созданный публичный ключ на три рабочих узла
 
 ```bash
-hw2_key='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINykv4pImXUuwnubsv36gbusZCEbZ4zkjO7GvmMBVGTA hadoop@team-12-nn'
-sudo -n install -d -m 700 -o hadoop -g hadoop /home/hadoop/.ssh
-printf '%s\n' "$hw2_key" | sudo -n -u hadoop tee -a /home/hadoop/.ssh/authorized_keys >/dev/null
-sudo -n -u hadoop chmod 600 /home/hadoop/.ssh/authorized_keys
+(
+  set -euo pipefail
+  for node in team-12-en team-12-00 team-12-01; do
+    sudo -n -u hadoop cat /home/hadoop/.ssh/id_ed25519.pub |
+      ssh -o BatchMode=yes -i "$HOME/.ssh/team_internal" "team@$node" '
+        sudo -n install -d -m 700 -o hadoop -g hadoop /home/hadoop/.ssh &&
+        sudo -n -u hadoop tee -a /home/hadoop/.ssh/authorized_keys >/dev/null &&
+        sudo -n -u hadoop chmod 600 /home/hadoop/.ssh/authorized_keys
+      '
+  done
+)
 ```
 
-На `team-12-nn` от `team` копируем новому пользователю уже проверенные
-SSH-отпечатки рабочих узлов:
+После успешной передачи ключа на `team-12-nn` от `team`
+копируем пользователю `hadoop` уже проверенные SSH-отпечатки рабочих узлов:
 
 ```bash
 sudo -n install -m 600 -o hadoop -g hadoop \
   "$HOME/.ssh/known_hosts" /home/hadoop/.ssh/known_hosts
 ```
+
 
 ### Адрес главного узла
 
