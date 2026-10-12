@@ -1,9 +1,9 @@
 # ДЗ №2 — развёртывание YARN
 
 YARN развёрнут на существующем HDFS-кластере команды 12.
-Hadoop установлен в /opt/hadoop.
+Hadoop установлен в `/opt/hadoop`. YARN работает от `hadoop`, HDFS — от `team`.
 
-## Состав кластера
+## Кластер
 
 | Узел | IP | Сервис YARN |
 | --- | --- | --- |
@@ -12,130 +12,131 @@ Hadoop установлен в /opt/hadoop.
 | team-12-00 | 10.12.0.12 | NodeManager |
 | team-12-01 | 10.12.0.13 | NodeManager |
 
-YARN запускается от отдельного пользователя hadoop.
-Существующие сервисы HDFS продолжают работать от team.
-
 ## Файлы
 
-- config/mapred-site.xml — выполнение MapReduce через YARN.
-- config/yarn-site.xml — адреса сервисов и ресурсы рабочих узлов.
-- config/yarn-env.sh — каталог логов YARN.
-- scripts/install_configs.sh — резервное копирование и установка конфигов.
-- scripts/deploy_yarn.sh — установка конфигов на четыре узла и запуск.
-- scripts/start_yarn.sh — запуск YARN с главного узла.
-- scripts/check_yarn.sh — проверка трёх ожидаемых узлов в состоянии RUNNING.
-- scripts/stop_yarn.sh — остановка только YARN.
-- scripts/open_web.sh — SSH-туннели к девяти веб-интерфейсам.
-- scripts/check_web.py — проверка HTTP/JMX-доступа через туннели (Python 3).
+```text
+config/
+  mapred-site.xml       MapReduce через YARN
+  yarn-site.xml         адреса сервисов и ресурсы узлов
+  yarn-env.sh           каталог логов /home/hadoop/yarn-logs
+scripts/
+  install_configs.sh   установка конфигов с резервными копиями
+  deploy_yarn.sh       развёртывание на четырёх узлах
+  start_yarn.sh        запуск YARN
+  stop_yarn.sh         остановка YARN
+  check_yarn.sh        проверка трёх узлов RUNNING
+  open_web.sh          SSH-туннели к веб-интерфейсам
+  check_web.py         проверка HTTP/JMX-доступности
+results/              результаты проверок
+```
 
-Подробные команды предварительной подготовки: [docs/prepare.md](docs/prepare.md).
+## Подготовка
 
-## Предварительная подготовка
+Нужны установленный Hadoop, работающий HDFS и SSH-доступ от `team`
+между узлами через `~/.ssh/team_internal`. У `team` настроен sudo без пароля.
+Подготовка пользователей, SSH и `/etc/hosts` выполняется один раз вручную.
 
-Скрипты рассчитаны на уже установленный Hadoop и работающий HDFS.
+### Пользователь
 
-На всех четырёх узлах должен существовать пользователь hadoop,
-не включённый в группу sudo.
+На каждом из четырёх узлов от `team`:
 
-На team-12-nn у пользователя hadoop создан SSH-ключ:
-~/.ssh/id_ed25519. Его публичная часть добавлена в
-/home/hadoop/.ssh/authorized_keys на трёх рабочих узлах.
-SSH-отпечатки серверов сохранены в known_hosts.
+```bash
+if ! id hadoop >/dev/null 2>&1; then
+  sudo -n adduser --disabled-password --gecos "" hadoop
+fi
+```
 
-Подключения от hadoop на главном узле к hadoop на рабочих
-узлах должны работать без ввода пароля.
+Пользователь `hadoop` не включён в группу sudo.
 
-Пользователь team на edge-узле использует существующий ключ
-~/.ssh/team_internal для подключения к остальным узлам.
-Для установки конфигов и переключения на hadoop требуется
-настроенный для team sudo без запроса пароля.
+### SSH
 
-Приватные SSH-ключи в репозиторий не включаются.
+На `team-12-nn` создайте ключ для `hadoop`, если его ещё нет:
 
-## Исправление адреса главного узла
+```bash
+sudo -iu hadoop
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+if [ ! -e "$HOME/.ssh/id_ed25519" ] && [ ! -e "$HOME/.ssh/id_ed25519.pub" ]; then
+  ssh-keygen -t ed25519 -N "" -f "$HOME/.ssh/id_ed25519"
+fi
+cat "$HOME/.ssh/id_ed25519.pub"
+```
 
-При первом запуске ResourceManager использовал локальный адрес
-127.0.1.1. NodeManager получали Connection refused при подключении
-к 10.12.0.11:8031.
+На каждом рабочем узле (`team-12-en`, `team-12-00`, `team-12-01`) от `team`
+добавьте полученную публичную строку, заменив значение `hw2_key`:
 
-В /etc/hosts на team-12-nn настроено:
+```bash
+hw2_key='ВСТАВЬТЕ_ПОЛНУЮ_ПУБЛИЧНУЮ_СТРОКУ_ssh-ed25519'
+sudo -n install -d -m 700 -o hadoop -g hadoop /home/hadoop/.ssh
+printf '%s\n' "$hw2_key" | sudo -n -u hadoop tee -a /home/hadoop/.ssh/authorized_keys >/dev/null
+sudo -n -u hadoop chmod 600 /home/hadoop/.ssh/authorized_keys
+```
+
+На `team-12-nn` от `team` скопируйте новому пользователю уже проверенные
+SSH-отпечатки рабочих узлов:
+
+```bash
+sudo -n install -m 600 -o hadoop -g hadoop \
+  "$HOME/.ssh/known_hosts" /home/hadoop/.ssh/known_hosts
+```
+
+### Адрес главного узла
+
+На `team-12-nn` от `team`:
+
+```bash
+sudo cp -p /etc/hosts "/etc/hosts.bak.$(date +%Y%m%d-%H%M%S)"
+sudo nano /etc/hosts
+```
+
+Записи для главного узла в `/etc/hosts`:
 
 ```text
 10.12.0.11 team-12-nn.hse.c.mws team-12-nn
 # 127.0.1.1 team-12-nn.hse.c.mws team-12-nn
 ```
 
-Перед редактированием была сохранена резервная копия /etc/hosts.
-После исправления YARN был перезапущен. Уже работавший SecondaryNameNode
-продолжал слушать 127.0.1.1:9868. Его отдельно перезапустили от team
-(см. [подготовку](docs/prepare.md)); после этого он слушал 10.12.0.11:9868.
+После изменения адреса перезапустите уже работающий SecondaryNameNode от `team`:
+
+```bash
+/opt/hadoop/bin/hdfs --daemon stop secondarynamenode &&
+/opt/hadoop/bin/hdfs --daemon start secondarynamenode
+```
 
 ## Развёртывание
 
-Используется Bash. На сервере нужны SSH/SCP, sudo и установленный Hadoop.
-Установщик рассчитан на сохранённые по указанному ниже пути файлы.
-
-Если YARN уже работает и вы применяете изменённые конфиги, сначала выполните
-`bash scripts/stop_yarn.sh` из папки проекта на edge-узле. Затем запускайте
-развёртывание: простое повторение start-yarn.sh не применяет настройки
-к уже запущенным процессам. HDFS останавливать не требуется.
-
-
-Разместите файлы проекта в /home/team/yarn-homework-2
-на team-12-en. Все следующие команды выполняются от team
-на этом узле.
+Разместите проект в `/home/team/yarn-homework-2` на `team-12-en`.
+Команды выполняются от `team`:
 
 ```bash
 cd "$HOME/yarn-homework-2"
 bash scripts/deploy_yarn.sh
+bash scripts/check_yarn.sh
 ```
 
-Скрипт сохраняет резервные копии трёх конфигурационных файлов
-в ~/yarn-homework-2/backup.* на каждом узле, устанавливает
-конфиги, создаёт каталог /home/hadoop/yarn-logs и запускает YARN.
+`deploy_yarn.sh` устанавливает три конфига на всех узлах, сохраняет их
+предыдущие версии в `backup.*`, создаёт каталоги логов и запускает YARN.
+Ожидаемый результат проверки — `Total Nodes:3`, все узлы в состоянии `RUNNING`.
 
-Каталог логов выделен отдельно, поскольку hadoop не мог писать
-в существующий /opt/hadoop/logs.
-
-Предварительная настройка пользователей, SSH и /etc/hosts
-в deploy_yarn.sh не автоматизирована.
-
-## Проверка
+Для повторного развёртывания с применением изменений:
 
 ```bash
-bash "$HOME/yarn-homework-2/scripts/check_yarn.sh"
-```
-
-Ожидаемый результат: Total Nodes:3, все три узла в состоянии RUNNING.
-Скрипт завершается с ошибкой, если узлы отсутствуют, повторяются, имеют
-другое состояние или не соответствуют трём ожидаемым рабочим узлам.
-
-Сохранение нового результата (выполняйте после успешного развёртывания):
-
-```bash
-mkdir -p results
-bash scripts/check_yarn.sh > results/yarn-nodes.txt 2>&1
+bash scripts/stop_yarn.sh && bash scripts/deploy_yarn.sh
+bash scripts/check_yarn.sh
 ```
 
 ## Веб-интерфейсы
 
-По уточнению преподавателя в чате курса доступ через localhost достаточен.
-Туннели открываются на личном компьютере пользователя, где лежит его ключ.
-Публично открывать порты серверов не требуется.
-
-В терминале своего компьютера перейдите в локальную папку проекта:
+На своём компьютере из папки проекта запустите туннель, указав путь
+к личному SSH-ключу доступа к edge-узлу:
 
 ```bash
 bash scripts/open_web.sh /path/to/private_key
 ```
 
-Вместо `/path/to/private_key` укажите свой приватный ключ доступа к edge-узлу.
-Не переносите его в репозиторий. Оставьте терминал открытым.
-Если уже работает старый туннель на 8088, закройте его через Ctrl+C именно
-в его вкладке перед открытием общего туннеля. Скрипт сообщит ошибку,
-если какой-либо локальный порт занят.
+Оставьте туннель работающим. Доступ через localhost разрешён преподавателем.
 
-| Сервис | Узел | Адрес в браузере на вашем компьютере |
+| Сервис | Узел | Адрес |
 | --- | --- | --- |
 | ResourceManager | nn | http://localhost:8088 |
 | NameNode | nn | http://localhost:9870 |
@@ -147,64 +148,19 @@ bash scripts/open_web.sh /path/to/private_key
 | NodeManager | 00 | http://localhost:28042 |
 | NodeManager | 01 | http://localhost:38042 |
 
-Локальные порты специально различаются: три DataNode слушают 9864
-на разных серверах, три NodeManager — 8042.
-Переходите по адресам из таблицы: внутренние ссылки с именами серверов
-могут не открываться с личного компьютера через такой туннель.
-
-Для проверки в другой локальной вкладке выполните (нужен Python 3):
+В другой вкладке терминала на своём компьютере из папки проекта:
 
 ```bash
 python3 scripts/check_web.py
 ```
 
-Ожидаются девять строк OK. Проверяются HTTP/JMX-ответы демонов;
-внешний вид страниц проверяется отдельно в браузере.
-Разрыв SSH-туннеля закрывает доступ через localhost,
-но сам по себе не останавливает сервисы YARN.
+Ожидаются девять строк `OK`.
 
-## Результат проверки
+## Результат
 
-12 октября 2026 года команда yarn node -list -all показала:
+Полный цикл остановки, развёртывания и проверки выполнен на подготовленном
+кластере: три NodeManager в состоянии `RUNNING`. Через SSH-туннель проверена
+HTTP/JMX-доступность всех девяти демонов.
 
-- team-12-en — RUNNING;
-- team-12-00 — RUNNING;
-- team-12-01 — RUNNING.
-
-В веб-интерфейсе ResourceManager подтверждены три активных узла.
-
-Вывод проверки: [results/yarn-nodes.txt](results/yarn-nodes.txt).
-
-## Границы выполненной проверки
-
-Файл results/yarn-nodes.txt содержит полученный на сервере результат
-от 12 октября 2026, 07:11 UTC после полного цикла остановки и развёртывания:
-три узла RUNNING. Вывод передан пользователем из терминала сервера.
-ResourceManager был открыт в браузере через SSH-туннель.
-
-12 октября 2026 пользователь запустил общий туннель и check_web.py на своём
-компьютере: все девять HTTP/JMX-интерфейсов вернули OK.
-Результат: [results/web-check.txt](results/web-check.txt). Это проверка
-HTTP/JMX-доступности; внешний вид всех девяти страниц отдельно не проверялся.
-
-12 октября 2026 на подготовленном кластере выполнена последовательность:
-
-```bash
-bash scripts/stop_yarn.sh && bash scripts/deploy_yarn.sh
-bash scripts/check_yarn.sh
-```
-
-Конфиги установлены на всех четырёх узлах с резервными копиями, YARN
-запущен, все три ожидаемых NodeManager зарегистрированы в RUNNING.
-Это подтверждает повторное развёртывание на подготовленной среде;
-пользователи, SSH и исправление /etc/hosts ранее настраивались вручную
-по инструкции. Проверка девяти HTTP/JMX-интерфейсов выполнена до этого
-повторного развёртывания.
-
-MapReduce-задание не запускалось. JobHistoryServer, TimelineServer и отдельный
-WebAppProxy не развёрнуты; инструкция охватывает существующие HDFS- и YARN-демоны.
-
-## Источники
-
-- [Apache Hadoop 3.4.2: Cluster Setup](https://hadoop.apache.org/docs/r3.4.2/hadoop-project-dist/hadoop-common/ClusterSetup.html)
-- [HDFS команды и конфигурация команды из ДЗ1](https://github.com/ganinal06-blip/hdfs-homework-1)
+- [Состояние узлов YARN](results/yarn-nodes.txt)
+- [Доступность веб-интерфейсов](results/web-check.txt)
