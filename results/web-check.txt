@@ -1,0 +1,11 @@
+Source: output of scripts/check_web.py supplied by the user on 2026-10-12.
+
+OK: ResourceManager: http://127.0.0.1:8088/jmx
+OK: NameNode: http://127.0.0.1:9870/jmx
+OK: SecondaryNameNode: http://127.0.0.1:9868/jmx
+OK: DataNode en: http://127.0.0.1:19864/jmx
+OK: DataNode 00: http://127.0.0.1:29864/jmx
+OK: DataNode 01: http://127.0.0.1:39864/jmx
+OK: NodeManager en: http://127.0.0.1:18042/jmx
+OK: NodeManager 00: http://127.0.0.1:28042/jmx
+OK: NodeManager 01: http://127.0.0.1:38042/jmx

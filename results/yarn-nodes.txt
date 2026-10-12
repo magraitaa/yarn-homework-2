@@ -1,0 +1,6 @@
+2026-10-12 06:31:34,508 INFO client.DefaultNoHARMFailoverProxyProvider: Connecting to ResourceManager at team-12-nn/10.12.0.11:8032
+Total Nodes:3
+         Node-Id	     Node-State	Node-Http-Address	Number-of-Running-Containers
+team-12-en.hse.c.mws:41563	        RUNNING	team-12-en.hse.c.mws:8042	                           0
+team-12-01.hse.c.mws:44875	        RUNNING	team-12-01.hse.c.mws:8042	                           0
+team-12-00.hse.c.mws:41863	        RUNNING	team-12-00.hse.c.mws:8042	                           0

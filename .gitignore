@@ -1,0 +1,9 @@
+backup.*/
+*.before-*
+*.swp
+*.swo
+.DS_Store
+__pycache__/
+.ssh/
+*.pem
+*.key
