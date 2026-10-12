@@ -156,3 +156,7 @@ HTTP/JMX-доступность всех девяти демонов.
 
 - [Состояние узлов YARN](results/yarn-nodes.txt)
 - [Доступность веб-интерфейсов](results/web-check.txt)
+
+В интерфейсе ResourceManager: три узла `RUNNING`, потерянных и нездоровых узлов нет.
+
+![Три работающих узла YARN в ResourceManager](results/yarn-nodes.png)
